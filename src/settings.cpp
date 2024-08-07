@@ -20,17 +20,34 @@ const char *PROGRAMS_PATH = "ProgramsPath";
 json json_settings;
 std::mutex mutex;
 std::vector<program> programsPath;
+std::filesystem::path SettingsPath;
 bool IsAddonEnabled = true;
 bool KillProcessesOnClose = false;
 
-void from_json(const json& j, program& p) {
+void from_json(const json &j, program &p)
+{
     j.at("path").get_to(p.path);
     j.at("arguments").get_to(p.arguments);
 }
 
-void to_json(json& j, const program& p) {
+void to_json(json &j, const program &p)
+{
     j["path"] = p.path;
     j["arguments"] = p.arguments;
+}
+
+void add_program(const std::string &program, const std::string &arguments)
+{
+    programsPath.emplace_back(program, arguments);
+    json_settings[PROGRAMS_PATH] = programsPath;
+    Save(SettingsPath);
+}
+
+void remove_program(const int i)
+{
+    Settings::programsPath.erase(Settings::programsPath.begin() + i);
+    Settings::json_settings[Settings::PROGRAMS_PATH] = Settings::programsPath;
+    Settings::Save(Settings::SettingsPath);
 }
 
 void Load(const std::filesystem::path &aPath)
@@ -48,8 +65,7 @@ void Load(const std::filesystem::path &aPath)
                 file.close();
             }
         } catch (json::parse_error &ex) {
-            API->Log(ELogLevel_WARNING, "App Launcher",
-                     "settings.json could not be parsed.");
+            API->Log(ELogLevel_WARNING, "App Launcher", "settings.json could not be parsed.");
             API->Log(ELogLevel_WARNING, "App Launcher", ex.what());
         }
     }
@@ -68,8 +84,7 @@ void Load(const std::filesystem::path &aPath)
 void Save(const std::filesystem::path &aPath)
 {
     if (json_settings.is_null()) {
-        API->Log(ELogLevel_WARNING, "App Launcher",
-                 "settings.json is null, cannot save.");
+        API->Log(ELogLevel_WARNING, "App Launcher", "settings.json is null, cannot save.");
         return;
     }
     if (!std::filesystem::exists(aPath.parent_path())) {

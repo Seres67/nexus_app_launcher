@@ -15,6 +15,7 @@ void Load(const std::filesystem::path &aPath);
 void Save(const std::filesystem::path &aPath);
 
 extern nlohmann::json json_settings;
+extern std::filesystem::path SettingsPath;
 extern std::mutex mutex;
 extern bool IsAddonEnabled;
 extern bool KillProcessesOnClose;
@@ -28,6 +29,9 @@ typedef struct
 void from_json(const nlohmann::json &j, program &p);
 
 void to_json(nlohmann::json &j, const program &p);
+
+void add_program(const std::string &program, const std::string &arguments);
+void remove_program(int i);
 
 extern std::vector<program> programsPath;
 
