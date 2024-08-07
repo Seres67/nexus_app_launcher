@@ -1,5 +1,6 @@
 #include <globals.hpp>
 #include <imgui/imgui.h>
+#include <imgui-filebrowser/imfilebrowser.h>
 #include <nexus/Nexus.h>
 #include <settings.hpp>
 #include <string>
@@ -35,7 +36,7 @@ extern "C" __declspec(dllexport) AddonDefinition *GetAddonDef()
     AddonDef.APIVersion = NEXUS_API_VERSION;
     AddonDef.Name = "App Launcher";
     AddonDef.Version.Major = 0;
-    AddonDef.Version.Minor = 1;
+    AddonDef.Version.Minor = 2;
     AddonDef.Version.Build = 0;
     AddonDef.Version.Revision = 0;
     AddonDef.Author = "Seres67";
@@ -106,16 +107,18 @@ void AddonRender()
 {
     if (handle != nullptr && !opened) {
         for (auto &program : Settings::programsPath) {
-            char log[256];
-            sprintf_s(log, "starting program: %s", program.c_str());
-            API->Log(ELogLevel_DEBUG, "App Launcher", log);
-
             processes.emplace_back();
             ZeroMemory(&processes.back().si, sizeof(processes.back().si));
             processes.back().si.cb = sizeof(processes.back().si);
             ZeroMemory(&processes.back().pi, sizeof(processes.back().pi));
-            CreateProcessA(program.c_str(), nullptr, nullptr, nullptr, false, 0, nullptr, nullptr, &processes.back().si,
-                           &processes.back().pi);
+            if (program.arguments.empty()) {
+                CreateProcessA(program.path.c_str(), nullptr, nullptr, nullptr, false, 0, nullptr, nullptr,
+                               &processes.back().si, &processes.back().pi);
+            } else {
+                std::string cmd(" " + program.arguments);
+                CreateProcessA(program.path.c_str(), const_cast<char *>(cmd.c_str()), nullptr, nullptr, false, 0,
+                               nullptr, nullptr, &processes.back().si, &processes.back().pi);
+            }
         }
         opened = true;
         std::thread(
@@ -130,10 +133,11 @@ void AddonRender()
 }
 
 char newProgram[256] = {0};
+char newArguments[256] = {0};
 bool isProgramValid = true;
+ImGui::FileBrowser fileBrowser;
 void AddonOptions()
 {
-    ImGui::TextDisabled("App Launcher");
     if (ImGui::Checkbox("Enabled##Widget", &Settings::IsAddonEnabled)) {
         Settings::json_settings[Settings::IS_ADDON_ENABLED] = Settings::IsAddonEnabled;
         Settings::Save(SettingsPath);
@@ -142,46 +146,63 @@ void AddonOptions()
         Settings::json_settings[Settings::KILL_PROCESSES_ON_CLOSE] = Settings::KillProcessesOnClose;
         Settings::Save(SettingsPath);
     }
-    if (ImGui::CollapsingHeader("Programs Path")) {
-        ImGui::Text("Programs Path");
+    if (ImGui::CollapsingHeader("Programs Path##ProgramsPathHeader")) {
         for (auto i = 0; i < Settings::programsPath.size(); i++) {
-
-            ImGui::Text(Settings::programsPath[i].c_str());
+            ImGui::PushID(i);
+            ImGui::Text(Settings::programsPath[i].path.c_str());
+            ImGui::SameLine();
+            ImGui::Text(Settings::programsPath[i].arguments.c_str());
             ImGui::SameLine();
             if (ImGui::Button("X")) {
-                if (Settings::KillProcessesOnClose) {
+                if (Settings::KillProcessesOnClose && processes.size() > i) {
                     TerminateProcess(processes[i].pi.hProcess, 0);
                     WaitForSingleObject(processes[i].pi.hProcess, INFINITE);
                     CloseHandle(processes[i].pi.hProcess);
                     CloseHandle(processes[i].pi.hThread);
+                    processes.erase(processes.begin() + i);
                 }
                 Settings::programsPath.erase(Settings::programsPath.begin() + i);
                 Settings::json_settings[Settings::PROGRAMS_PATH] = Settings::programsPath;
                 Settings::Save(SettingsPath);
+                continue;
             }
             if (ImGui::IsItemHovered()) {
                 ImGui::SetTooltip("Remove program from list and kills it if kill processes on close is enabled.");
             }
+            ImGui::PopID();
         }
-        ImGui::InputText("Add program##ProgramInput", newProgram, 256);
+    }
+    if (ImGui::CollapsingHeader("Add program##AddProgramHeader")) {
+        if (ImGui::Button("Open File Picker##OpenFilePickerButton")) {
+            fileBrowser.SetTypeFilters({".exe"});
+            fileBrowser.Open();
+        }
+        fileBrowser.Display();
+        if (fileBrowser.HasSelected()) {
+            strcpy_s(newProgram, (char *)fileBrowser.GetSelected().u8string().c_str());
+        }
+        ImGui::NewLine();
+        ImGui::InputText("Program Path##ProgramPathInput", newProgram, 256);
+        ImGui::InputText("Program Arguments##ProgramArgumentsInput", newArguments, 256);
         if (ImGui::Button("Add program##AddProgramButton")) {
             std::string program(newProgram);
+            std::string arguments(newArguments);
             if (program.find(".exe") == std::string::npos) {
                 isProgramValid = false;
             } else {
                 auto pos = program.find_first_of('"');
                 if (pos != std::string::npos) {
-                    API->Log(ELogLevel_DEBUG, "App Launcher", "Path has quotes");
                     program.erase(pos, 1);
                     program.erase(program.find_last_of('"'), 1);
                 }
-                Settings::programsPath.emplace_back(program);
+                Settings::programsPath.emplace_back(program, arguments);
                 Settings::json_settings[Settings::PROGRAMS_PATH] = Settings::programsPath;
                 Settings::Save(SettingsPath);
+                fileBrowser.ClearSelected();
                 memset(newProgram, 0, 256);
+                memset(newArguments, 0, 256);
                 isProgramValid = true;
             }
-
         }
         if (!isProgramValid) {
             ImGui::SameLine();

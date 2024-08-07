@@ -19,9 +19,19 @@ const char *PROGRAMS_PATH = "ProgramsPath";
 
 json json_settings;
 std::mutex mutex;
-std::vector<std::string> programsPath;
+std::vector<program> programsPath;
 bool IsAddonEnabled = true;
 bool KillProcessesOnClose = false;
+
+void from_json(const json& j, program& p) {
+    j.at("path").get_to(p.path);
+    j.at("arguments").get_to(p.arguments);
+}
+
+void to_json(json& j, const program& p) {
+    j["path"] = p.path;
+    j["arguments"] = p.arguments;
+}
 
 void Load(const std::filesystem::path &aPath)
 {
