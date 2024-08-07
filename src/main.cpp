@@ -38,7 +38,7 @@ extern "C" __declspec(dllexport) AddonDefinition *GetAddonDef()
     AddonDef.Name = "App Launcher";
     AddonDef.Version.Major = 0;
     AddonDef.Version.Minor = 2;
-    AddonDef.Version.Build = 0;
+    AddonDef.Version.Build = 1;
     AddonDef.Version.Revision = 0;
     AddonDef.Author = "Seres67";
     AddonDef.Description = "An addon that launches other programs when you launch the game.";
