@@ -15,7 +15,7 @@ An addon that launches other programs when you launch the game.
 The addon is enabled by default.  
 To edit the settings, open the Nexus options window, click on Addons, and then click on App Launcher.  
 To add a program, enter the path to the program's exe file in the Programs Path section, and click Add program.  
-Programs are launched when the addon is loaded, so to restart the game or reload the addon.  
+Programs are launched when the addon is loaded, so restart the game or reload the addon.  
 There is an option to kill all running processes when the addon is unloaded/the game is closed.
 
 ## License
