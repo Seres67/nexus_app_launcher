@@ -1,5 +1,6 @@
 #include <globals.hpp>
 #include <imgui/imgui.h>
+#include <imgui/imgui_internal.h>
 #include <imgui-filebrowser/imfilebrowser.h>
 #include <nexus/Nexus.h>
 #include <settings.hpp>
@@ -80,7 +81,7 @@ void AddonLoad(AddonAPI *api)
         Settings::json_settings[Settings::PROGRAMS_PATH] = Settings::programsPath;
         Settings::Save(SettingsPath);
     }
-    API->Log(ELogLevel_INFO, "App Launcher", "loaded!");
+    API->Log(ELogLevel_INFO, "App Launcher", "addon loaded!");
 }
 
 typedef struct
@@ -132,10 +133,22 @@ void AddonRender()
     }
 }
 
+void killProcess(const int i)
+{
+    TerminateProcess(processes[i].pi.hProcess, 0);
+    WaitForSingleObject(processes[i].pi.hProcess, INFINITE);
+    CloseHandle(processes[i].pi.hProcess);
+    CloseHandle(processes[i].pi.hThread);
+    processes.erase(processes.begin() + i);
+}
+
 char newProgram[256] = {0};
 char newArguments[256] = {0};
+char editProgramPath[256] = {0};
+char editProgramArguments[256] = {0};
 bool isProgramValid = true;
 ImGui::FileBrowser fileBrowser;
+int editProgram = -1;
 void AddonOptions()
 {
     if (ImGui::Checkbox("Enabled##Widget", &Settings::IsAddonEnabled)) {
@@ -149,18 +162,45 @@ void AddonOptions()
     if (ImGui::CollapsingHeader("Programs Path##ProgramsPathHeader")) {
         for (auto i = 0; i < Settings::programsPath.size(); i++) {
             ImGui::PushID(i);
-            ImGui::Text(Settings::programsPath[i].path.c_str());
+            if (editProgram == i) {
+                ImGui::InputText("Program Path##ProgramPathInput", newProgram, 256);
+                ImGui::InputText("Program Arguments##ProgramArgumentsInput", newArguments, 256);
+                if (ImGui::Button("Confirm##ConfirmButton")) {
+                    Settings::programsPath[i].path = newProgram;
+                    Settings::programsPath[i].arguments = newArguments;
+                    Settings::json_settings[Settings::PROGRAMS_PATH] = Settings::programsPath;
+                    Settings::Save(SettingsPath);
+                    memset(newProgram, 0, 256);
+                    memset(newArguments, 0, 256);
+                    isProgramValid = true;
+                    editProgram = -1;
+                    if (Settings::KillProcessesOnClose)
+                        killProcess(i);
+                }
+            } else {
+                if (std::filesystem::exists(Settings::programsPath[i].path)) {
+                    ImGui::Text(Settings::programsPath[i].path.c_str());
+                    ImGui::SameLine();
+                    ImGui::Text(Settings::programsPath[i].arguments.c_str());
+                } else {
+                    ImGui::TextColored(ImVec4(1, 0, 0, 1), Settings::programsPath[i].path.c_str());
+                    if (ImGui::IsItemHovered()) {
+                        ImGui::SetTooltip("Path does not exist.");
+                    }
+                    ImGui::SameLine();
+                    ImGui::TextColored(ImVec4(1, 0, 0, 1), Settings::programsPath[i].arguments.c_str());
+                }
+            }
             ImGui::SameLine();
-            ImGui::Text(Settings::programsPath[i].arguments.c_str());
+            if (ImGui::Button("Edit")) {
+                editProgram = i;
+                strcpy_s(editProgramPath, Settings::programsPath[i].path.c_str());
+                strcpy_s(editProgramArguments, Settings::programsPath[i].arguments.c_str());
+            }
             ImGui::SameLine();
             if (ImGui::Button("X")) {
-                if (Settings::KillProcessesOnClose && processes.size() > i) {
-                    TerminateProcess(processes[i].pi.hProcess, 0);
-                    WaitForSingleObject(processes[i].pi.hProcess, INFINITE);
-                    CloseHandle(processes[i].pi.hProcess);
-                    CloseHandle(processes[i].pi.hThread);
-                    processes.erase(processes.begin() + i);
-                }
+                if (Settings::KillProcessesOnClose && processes.size() > i)
+                    killProcess(i);
                 Settings::programsPath.erase(Settings::programsPath.begin() + i);
                 Settings::json_settings[Settings::PROGRAMS_PATH] = Settings::programsPath;
                 Settings::Save(SettingsPath);
