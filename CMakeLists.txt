@@ -31,6 +31,6 @@ include_directories(include)
 # load imgui as a cmake project
 add_subdirectory(src/imgui)
 
-add_library(nexus_app_launcher SHARED src/main.cpp src/globals.cpp src/settings.cpp)
+add_library(nexus_app_launcher SHARED src/main.cpp src/globals.cpp src/gui.cpp src/settings.cpp)
 target_link_libraries(nexus_app_launcher imgui)
-#set_property(TARGET nexus_app_launcher PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded")
+set_property(TARGET nexus_app_launcher PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreadedDebug")

@@ -1,19 +1,17 @@
 #include <globals.hpp>
+#include <gui.hpp>
 #include <imgui/imgui.h>
 #include <imgui/imgui_internal.h>
-#include <imgui-filebrowser/imfilebrowser.h>
 #include <nexus/Nexus.h>
 #include <settings.hpp>
 #include <string>
 #include <vector>
 #include <windows.h>
 
-HMODULE hSelf;
-
-void AddonLoad(AddonAPI *aApi);
-void AddonUnload();
-void AddonRender();
-void AddonOptions();
+void addon_load(AddonAPI *api);
+void addon_unload();
+void addon_render();
+void addon_options();
 
 BOOL APIENTRY DllMain(const HMODULE hModule, const DWORD ul_reason_for_call, LPVOID lpReserved)
 {
@@ -30,46 +28,95 @@ BOOL APIENTRY DllMain(const HMODULE hModule, const DWORD ul_reason_for_call, LPV
     return TRUE;
 }
 
-AddonDefinition AddonDef{};
 extern "C" __declspec(dllexport) AddonDefinition *GetAddonDef()
 {
     AddonDef.Signature = -912284124;
     AddonDef.APIVersion = NEXUS_API_VERSION;
     AddonDef.Name = "App Launcher";
     AddonDef.Version.Major = 0;
-    AddonDef.Version.Minor = 3;
+    AddonDef.Version.Minor = 4;
     AddonDef.Version.Build = 0;
     AddonDef.Version.Revision = 0;
     AddonDef.Author = "Seres67";
     AddonDef.Description = "An addon that launches other programs when you launch the game.";
-    AddonDef.Load = AddonLoad;
-    AddonDef.Unload = AddonUnload;
-    AddonDef.Flags = EAddonFlags_None;
+    AddonDef.Load = addon_load;
+    AddonDef.Unload = addon_unload;
+    AddonDef.Flags = (EAddonFlags)8;
     AddonDef.Provider = EUpdateProvider_GitHub;
     AddonDef.UpdateLink = "https://github.com/Seres67/nexus_app_launcher";
 
     return &AddonDef;
 }
 
-HWND handle = nullptr;
-unsigned int WndProc(HWND hWnd, unsigned int uMsg, WPARAM wParam, LPARAM lParam)
+void create_process(const std::string &path, const std::string &arguments)
 {
-    if (!handle)
-        handle = hWnd;
+    processes.emplace_back();
+    ZeroMemory(&processes.back().si, sizeof(processes.back().si));
+    processes.back().si.cb = sizeof(processes.back().si);
+    ZeroMemory(&processes.back().pi, sizeof(processes.back().pi));
+    std::string cmd(" " + arguments);
+    CreateProcessA(path.c_str(), const_cast<char *>(cmd.c_str()), nullptr, nullptr, false, 0, nullptr, nullptr,
+                   &processes.back().si, &processes.back().pi);
+}
+
+unsigned int wnd_proc(HWND__ *hWnd, const unsigned int uMsg, [[maybe_unused]] WPARAM wParam,
+                      [[maybe_unused]] LPARAM lParam)
+{
+    if (!game_handle)
+        game_handle = hWnd;
+    if (uMsg == WM_CLOSE || uMsg == WM_DESTROY || uMsg == WM_QUIT) {
+        if (game_handle != nullptr) {
+            if (Settings::KillProcessesOnClose) {
+                API->Log(ELogLevel_INFO, "App Launcher", "killing every program on exit...");
+                for (auto &[pi, si] : processes) {
+                    char log[256];
+                    sprintf_s(log, "killing process %d", pi.dwProcessId);
+                    API->Log(ELogLevel_DEBUG, "App Launcher", log);
+                    TerminateProcess(pi.hProcess, 0);
+                    WaitForSingleObject(pi.hProcess, INFINITE);
+                    CloseHandle(pi.hProcess);
+                    CloseHandle(pi.hThread);
+                }
+            }
+            API->Log(ELogLevel_INFO, "App Launcher", "starting every program on exit...");
+            for (auto &[path, arguments] : Settings::exitProgramsPath) {
+                char log[256];
+                sprintf_s(log, "trying to start program at %s", path.c_str());
+                API->Log(ELogLevel_DEBUG, "App Launcher", log);
+                PROCESS_INFORMATION pi;
+                STARTUPINFOA si;
+                ZeroMemory(&si, sizeof(si));
+                si.cb = sizeof(si);
+                ZeroMemory(&pi, sizeof(pi));
+                std::string cmd(" " + arguments);
+                CreateProcessA(path.c_str(), const_cast<char *>(cmd.c_str()), nullptr, nullptr, false, 0, nullptr,
+                               nullptr, &si, &pi);
+            }
+            std::thread(
+                []()
+                {
+                    API->WndProc.Deregister(wnd_proc);
+                    API->Log(ELogLevel_INFO, "App Launcher", "launched every program on exit & deregistered wndproc!");
+                })
+                .detach();
+        } else {
+            API->Log(ELogLevel_DEBUG, "App Launcher", "handle is null");
+        }
+    }
     return uMsg;
 }
 
-void AddonLoad(AddonAPI *api)
+void addon_load(AddonAPI *api)
 {
     API = api;
 
-    API->WndProc.Register(WndProc);
+    API->WndProc.Register(wnd_proc);
 
-    ImGui::SetCurrentContext((ImGuiContext *)API->ImguiContext);
-    ImGui::SetAllocatorFunctions((void *(*)(size_t, void *))API->ImguiMalloc,
-                                 (void (*)(void *, void *))API->ImguiFree); // on imgui 1.80+
-    API->Renderer.Register(ERenderType_Render, AddonRender);
-    API->Renderer.Register(ERenderType_OptionsRender, AddonOptions);
+    ImGui::SetCurrentContext(static_cast<ImGuiContext *>(API->ImguiContext));
+    ImGui::SetAllocatorFunctions(static_cast<void *(*)(size_t, void *)>(API->ImguiMalloc),
+                                 static_cast<void (*)(void *, void *)>(API->ImguiFree)); // on imgui 1.80+
+    API->Renderer.Register(ERenderType_Render, addon_render);
+    API->Renderer.Register(ERenderType_OptionsRender, addon_options);
 
     Settings::SettingsPath = API->Paths.GetAddonDirectory("app_launcher/settings.json");
     if (std::filesystem::exists(Settings::SettingsPath)) {
@@ -77,211 +124,47 @@ void AddonLoad(AddonAPI *api)
     } else {
         Settings::json_settings[Settings::IS_ADDON_ENABLED] = Settings::IsAddonEnabled;
         Settings::json_settings[Settings::KILL_PROCESSES_ON_CLOSE] = Settings::KillProcessesOnClose;
-        Settings::json_settings[Settings::PROGRAMS_PATH] = Settings::programsPath;
+        Settings::json_settings[Settings::START_PROGRAMS_PATH] = Settings::startProgramsPath;
+        Settings::json_settings[Settings::EXIT_PROGRAMS_PATH] = Settings::exitProgramsPath;
         Settings::Save(Settings::SettingsPath);
     }
+    GetEnvironmentVariableA("Path", path, 10240);
     API->Log(ELogLevel_INFO, "App Launcher", "addon loaded!");
 }
 
-typedef struct
+void addon_unload()
 {
-    PROCESS_INFORMATION pi;
-    STARTUPINFOA si;
-} process;
-std::vector<process> processes;
-void AddonUnload()
-{
-    if (Settings::KillProcessesOnClose) {
-        for (auto &[pi, si] : processes) {
-            TerminateProcess(pi.hProcess, 0);
-            WaitForSingleObject(pi.hProcess, INFINITE);
-            CloseHandle(pi.hProcess);
-            CloseHandle(pi.hThread);
-        }
-    }
-    API->Renderer.Deregister(AddonOptions);
+    API->Log(ELogLevel_INFO, "App Launcher", "unloading addon...");
+    API->Renderer.Deregister(addon_options);
+    API = nullptr;
 }
 
-bool opened = false;
-void AddonRender()
+void addon_render()
 {
-    if (handle != nullptr && !opened) {
-        for (auto &[path, arguments] : Settings::programsPath) {
-            processes.emplace_back();
-            ZeroMemory(&processes.back().si, sizeof(processes.back().si));
-            processes.back().si.cb = sizeof(processes.back().si);
-            ZeroMemory(&processes.back().pi, sizeof(processes.back().pi));
-            if (arguments.empty()) {
-                CreateProcessA(path.c_str(), nullptr, nullptr, nullptr, false, 0, nullptr, nullptr,
-                               &processes.back().si, &processes.back().pi);
-            } else {
-                std::string cmd(" " + arguments);
-                CreateProcessA(path.c_str(), const_cast<char *>(cmd.c_str()), nullptr, nullptr, false, 0, nullptr,
-                               nullptr, &processes.back().si, &processes.back().pi);
-            }
-        }
-        opened = true;
+    if (game_handle != nullptr && !startedPrograms) {
+        for (auto &[path, arguments] : Settings::startProgramsPath)
+            create_process(path, arguments);
+        startedPrograms = true;
         std::thread(
             []()
             {
-                API->Renderer.Deregister(AddonRender);
-                API->WndProc.Deregister(WndProc);
-                API->Log(ELogLevel_INFO, "App Launcher", "launched every program & deregistered renderer & wndproc!");
+                API->Renderer.Deregister(addon_render);
+                API->Log(ELogLevel_INFO, "App Launcher", "launched every program & deregistered renderer!");
             })
             .detach();
     }
 }
 
-void killProcess(const int i)
+void addon_options()
 {
-    TerminateProcess(processes[i].pi.hProcess, 0);
-    WaitForSingleObject(processes[i].pi.hProcess, INFINITE);
-    CloseHandle(processes[i].pi.hProcess);
-    CloseHandle(processes[i].pi.hThread);
-    processes.erase(processes.begin() + i);
-}
-
-template <typename Out> void split(const std::string &s, const char delim, Out result)
-{
-    std::istringstream iss(s);
-    std::string item;
-    while (std::getline(iss, item, delim)) {
-        *result++ = item;
-    }
-}
-
-std::vector<std::string> split(const std::string &s, const char delim)
-{
-    std::vector<std::string> elems;
-    split(s, delim, std::back_inserter(elems));
-    return elems;
-}
-
-std::string get_path()
-{
-    char path[10240];
-    GetEnvironmentVariableA("Path", path, 10240);
-    return path;
-}
-
-std::string get_program_path(const std::string &program, const std::string &path)
-{
-    for (const auto paths = split(path, ';'); auto p : paths) {
-        p.append("\\").append(program);
-        char log[256];
-        sprintf_s(log, "Checking if program exists at %s", p.c_str());
-        API->Log(ELogLevel_DEBUG, "App Launcher", log);
-        if (std::filesystem::exists(p)) {
-            return p;
-        }
-    }
-    return program;
-}
-
-char newProgram[256] = {0};
-char newArguments[256] = {0};
-char editProgramPath[256] = {0};
-char editProgramArguments[256] = {0};
-bool isProgramValid = true;
-ImGui::FileBrowser fileBrowser;
-int editProgram = -1;
-void AddonOptions()
-{
-    if (ImGui::Checkbox("Enabled##Widget", &Settings::IsAddonEnabled)) {
-        Settings::json_settings[Settings::IS_ADDON_ENABLED] = Settings::IsAddonEnabled;
-        Settings::Save(Settings::SettingsPath);
-    }
-    if (ImGui::Checkbox("Kill Processes On Close##Widget", &Settings::KillProcessesOnClose)) {
-        Settings::json_settings[Settings::KILL_PROCESSES_ON_CLOSE] = Settings::KillProcessesOnClose;
-        Settings::Save(Settings::SettingsPath);
-    }
+    display_active_option();
+    display_kill_processes_on_close_option();
     if (ImGui::CollapsingHeader("Programs Path##ProgramsPathHeader")) {
-        for (auto i = 0; i < Settings::programsPath.size(); i++) {
-            ImGui::PushID(i);
-            if (editProgram == i) {
-                ImGui::InputText("Program Path##ProgramPathInput", newProgram, 256);
-                ImGui::InputText("Program Arguments##ProgramArgumentsInput", newArguments, 256);
-                if (ImGui::Button("Confirm##ConfirmButton")) {
-                    Settings::programsPath[i].path = newProgram;
-                    Settings::programsPath[i].arguments = newArguments;
-                    Settings::json_settings[Settings::PROGRAMS_PATH] = Settings::programsPath;
-                    Settings::Save(Settings::SettingsPath);
-                    memset(newProgram, 0, 256);
-                    memset(newArguments, 0, 256);
-                    isProgramValid = true;
-                    editProgram = -1;
-                    if (Settings::KillProcessesOnClose)
-                        killProcess(i);
-                }
-            } else {
-                if (std::filesystem::exists(Settings::programsPath[i].path)) {
-                    ImGui::Text(Settings::programsPath[i].path.c_str());
-                    ImGui::SameLine();
-                    ImGui::Text(Settings::programsPath[i].arguments.c_str());
-                } else {
-                    ImGui::TextColored(ImVec4(1, 0, 0, 1), Settings::programsPath[i].path.c_str());
-                    if (ImGui::IsItemHovered()) {
-                        ImGui::SetTooltip("Path does not exist.");
-                    }
-                    ImGui::SameLine();
-                    ImGui::TextColored(ImVec4(1, 0, 0, 1), Settings::programsPath[i].arguments.c_str());
-                }
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Edit")) {
-                editProgram = i;
-                strcpy_s(editProgramPath, Settings::programsPath[i].path.c_str());
-                strcpy_s(editProgramArguments, Settings::programsPath[i].arguments.c_str());
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("X")) {
-                if (Settings::KillProcessesOnClose && processes.size() > i)
-                    killProcess(i);
-                Settings::remove_program(i);
-                continue;
-            }
-            if (ImGui::IsItemHovered()) {
-                ImGui::SetTooltip("Remove program from list and kills it if kill processes on close is enabled.");
-            }
-            ImGui::PopID();
-        }
+        display_start_programs_option();
+        ImGui::NewLine();
+        display_exit_programs_option();
     }
     if (ImGui::CollapsingHeader("Add program##AddProgramHeader")) {
-        if (ImGui::Button("Open File Picker##OpenFilePickerButton")) {
-            fileBrowser.SetTypeFilters({".exe"});
-            fileBrowser.Open();
-        }
-        fileBrowser.Display();
-        if (fileBrowser.HasSelected()) {
-            strcpy_s(newProgram, (char *)fileBrowser.GetSelected().u8string().c_str());
-        }
-        ImGui::NewLine();
-        ImGui::InputText("Program Path##ProgramPathInput", newProgram, 256);
-        ImGui::InputText("Program Arguments##ProgramArgumentsInput", newArguments, 256);
-        if (ImGui::Button("Add program##AddProgramButton")) {
-            std::string program(newProgram);
-            std::string arguments(newArguments);
-            if (program.find(".exe") == std::string::npos) {
-                isProgramValid = false;
-            } else {
-                if (const auto pos = program.find_first_of('"'); pos != std::string::npos) {
-                    program.erase(pos, 1);
-                    program.erase(program.find_last_of('"'), 1);
-                }
-                if (program.find("/\\") == std::string::npos) {
-                    API->Log(ELogLevel_DEBUG, "App Launcher", "Trying to find program in PATH...");
-                    program = get_program_path(program, get_path());
-                }
-                Settings::add_program(program, arguments);
-                fileBrowser.ClearSelected();
-                memset(newProgram, 0, 256);
-                memset(newArguments, 0, 256);
-                isProgramValid = true;
-            }
-        }
-        if (!isProgramValid) {
-            ImGui::SameLine();
-            ImGui::Text("Path must lead to an executable file. (.exe)");
-        }
+        display_add_program_option();
     }
 }

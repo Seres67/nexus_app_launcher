@@ -30,14 +30,18 @@ void from_json(const nlohmann::json &j, program &p);
 
 void to_json(nlohmann::json &j, const program &p);
 
-void add_program(const std::string &program, const std::string &arguments);
-void remove_program(int i);
+void add_start_program(const std::string &program, const std::string &arguments);
+void add_exit_program(const std::string &program, const std::string &arguments);
+void remove_start_program(int i);
+void remove_exit_program(int i);
 
-extern std::vector<program> programsPath;
+extern std::vector<program> startProgramsPath;
+extern std::vector<program> exitProgramsPath;
 
 extern const char *IS_ADDON_ENABLED;
 extern const char *KILL_PROCESSES_ON_CLOSE;
-extern const char *PROGRAMS_PATH;
+extern const char *START_PROGRAMS_PATH;
+extern const char *EXIT_PROGRAMS_PATH;
 } // namespace Settings
 
 #endif // SETTINGS_HPP
