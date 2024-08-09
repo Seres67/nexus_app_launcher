@@ -10,17 +10,17 @@
 
 void display_active_option()
 {
-    if (ImGui::Checkbox("Enabled##Widget", &Settings::IsAddonEnabled)) {
-        Settings::json_settings[Settings::IS_ADDON_ENABLED] = Settings::IsAddonEnabled;
-        Settings::Save(Settings::SettingsPath);
+    if (ImGui::Checkbox("Enabled##Widget", &Settings::is_addon_enabled)) {
+        Settings::json_settings[Settings::IS_ADDON_ENABLED] = Settings::is_addon_enabled;
+        Settings::save(Settings::settings_path);
     }
 }
 
 void display_kill_processes_on_close_option()
 {
-    if (ImGui::Checkbox("Kill Processes On Close##Widget", &Settings::KillProcessesOnClose)) {
-        Settings::json_settings[Settings::KILL_PROCESSES_ON_CLOSE] = Settings::KillProcessesOnClose;
-        Settings::Save(Settings::SettingsPath);
+    if (ImGui::Checkbox("Kill Processes On Close##Widget", &Settings::kill_processes_on_close)) {
+        Settings::json_settings[Settings::KILL_PROCESSES_ON_CLOSE] = Settings::kill_processes_on_close;
+        Settings::save(Settings::settings_path);
     }
 }
 
@@ -36,56 +36,56 @@ void kill_process(const int i)
 void display_start_programs_option()
 {
     ImGui::Text("Start Programs");
-    for (auto i = 0; i < Settings::startProgramsPath.size(); i++) {
+    for (auto i = 0; i < Settings::start_programs_path.size(); i++) {
         ImGui::PushID(i);
-        if (editProgram == i) {
-            ImGui::InputText("Program Path##ProgramPathInput", editProgramPath, 256);
-            ImGui::InputText("Program Arguments##ProgramArgumentsInput", editProgramArguments, 256);
+        if (edit_program == i) {
+            ImGui::InputText("Program Path##ProgramPathInput", edit_program_path, 256);
+            ImGui::InputText("Program Arguments##ProgramArgumentsInput", edit_program_arguments, 256);
             if (ImGui::Button("Confirm##ConfirmButton")) {
-                Settings::startProgramsPath[i].path = editProgramPath;
-                Settings::startProgramsPath[i].arguments = editProgramArguments;
-                Settings::json_settings[Settings::START_PROGRAMS_PATH] = Settings::startProgramsPath;
-                Settings::Save(Settings::SettingsPath);
-                memset(editProgramPath, 0, 256);
-                memset(editProgramArguments, 0, 256);
-                isProgramValid = true;
-                editProgram = -1;
-                if (Settings::KillProcessesOnClose)
+                Settings::start_programs_path[i].path = edit_program_path;
+                Settings::start_programs_path[i].arguments = edit_program_arguments;
+                Settings::json_settings[Settings::START_PROGRAMS_PATH] = Settings::start_programs_path;
+                Settings::save(Settings::settings_path);
+                memset(edit_program_path, 0, 256);
+                memset(edit_program_arguments, 0, 256);
+                is_program_valid = true;
+                edit_program = -1;
+                if (Settings::kill_processes_on_close)
                     kill_process(i);
             }
             ImGui::SameLine();
             if (ImGui::Button("Cancel##CancelButton")) {
-                memset(editProgramPath, 0, 256);
-                memset(editProgramArguments, 0, 256);
-                isProgramValid = true;
-                editProgram = -1;
+                memset(edit_program_path, 0, 256);
+                memset(edit_program_arguments, 0, 256);
+                is_program_valid = true;
+                edit_program = -1;
             }
         } else {
-            if (std::filesystem::exists(Settings::startProgramsPath[i].path)) {
-                ImGui::Text("%s", Settings::startProgramsPath[i].path.c_str());
+            if (std::filesystem::exists(Settings::start_programs_path[i].path)) {
+                ImGui::Text("%s", Settings::start_programs_path[i].path.c_str());
                 ImGui::SameLine();
-                ImGui::Text("%s", Settings::startProgramsPath[i].arguments.c_str());
+                ImGui::Text("%s", Settings::start_programs_path[i].arguments.c_str());
             } else {
-                ImGui::TextColored(ImVec4(1, 0, 0, 1), "%s", Settings::startProgramsPath[i].path.c_str());
+                ImGui::TextColored(ImVec4(1, 0, 0, 1), "%s", Settings::start_programs_path[i].path.c_str());
                 if (ImGui::IsItemHovered()) {
                     ImGui::SetTooltip("Path does not exist.");
                 }
                 ImGui::SameLine();
-                ImGui::TextColored(ImVec4(1, 0, 0, 1), "%s", Settings::startProgramsPath[i].arguments.c_str());
+                ImGui::TextColored(ImVec4(1, 0, 0, 1), "%s", Settings::start_programs_path[i].arguments.c_str());
             }
         }
         ImGui::SameLine();
-        if (editProgram == -1 && ImGui::Button("Edit")) {
-            editProgram = i;
-            strcpy_s(editProgramPath, Settings::startProgramsPath[i].path.c_str());
-            strcpy_s(editProgramArguments, Settings::startProgramsPath[i].arguments.c_str());
+        if (edit_program == -1 && ImGui::Button("Edit")) {
+            edit_program = i;
+            strcpy_s(edit_program_path, Settings::start_programs_path[i].path.c_str());
+            strcpy_s(edit_program_arguments, Settings::start_programs_path[i].arguments.c_str());
         }
         ImGui::SameLine();
         if (ImGui::Button("Delete")) {
-            if (Settings::KillProcessesOnClose && processes.size() > i)
+            if (Settings::kill_processes_on_close && processes.size() > i)
                 kill_process(i);
             Settings::remove_start_program(i);
-            editProgram = -1;
+            edit_program = -1;
             continue;
         }
         if (ImGui::IsItemHovered()) {
@@ -98,52 +98,52 @@ void display_start_programs_option()
 void display_exit_programs_option()
 {
     ImGui::Text("Exit Programs");
-    for (auto i = 0; i < Settings::exitProgramsPath.size(); i++) {
+    for (auto i = 0; i < Settings::exit_programs_path.size(); i++) {
         ImGui::PushID(("exit" + std::to_string(i)).c_str());
-        if (editExitProgram == i) {
-            ImGui::InputText("Program Path##ProgramPathInput", editProgramPath, 256);
-            ImGui::InputText("Program Arguments##ProgramArgumentsInput", editProgramArguments, 256);
+        if (edit_exit_program == i) {
+            ImGui::InputText("Program Path##ProgramPathInput", edit_program_path, 256);
+            ImGui::InputText("Program Arguments##ProgramArgumentsInput", edit_program_arguments, 256);
             if (ImGui::Button("Confirm##ConfirmButton")) {
-                Settings::exitProgramsPath[i].path = editProgramPath;
-                Settings::exitProgramsPath[i].arguments = editProgramArguments;
-                Settings::json_settings[Settings::EXIT_PROGRAMS_PATH] = Settings::exitProgramsPath;
-                Settings::Save(Settings::SettingsPath);
-                memset(editProgramPath, 0, 256);
-                memset(editProgramArguments, 0, 256);
-                isProgramValid = true;
-                editExitProgram = -1;
+                Settings::exit_programs_path[i].path = edit_program_path;
+                Settings::exit_programs_path[i].arguments = edit_program_arguments;
+                Settings::json_settings[Settings::EXIT_PROGRAMS_PATH] = Settings::exit_programs_path;
+                Settings::save(Settings::settings_path);
+                memset(edit_program_path, 0, 256);
+                memset(edit_program_arguments, 0, 256);
+                is_program_valid = true;
+                edit_exit_program = -1;
             }
             ImGui::SameLine();
             if (ImGui::Button("Cancel##CancelButton")) {
-                memset(editProgramPath, 0, 256);
-                memset(editProgramArguments, 0, 256);
-                isProgramValid = true;
-                editExitProgram = -1;
+                memset(edit_program_path, 0, 256);
+                memset(edit_program_arguments, 0, 256);
+                is_program_valid = true;
+                edit_exit_program = -1;
             }
         } else {
-            if (std::filesystem::exists(Settings::exitProgramsPath[i].path)) {
-                ImGui::Text("%s", Settings::exitProgramsPath[i].path.c_str());
+            if (std::filesystem::exists(Settings::exit_programs_path[i].path)) {
+                ImGui::Text("%s", Settings::exit_programs_path[i].path.c_str());
                 ImGui::SameLine();
-                ImGui::Text("%s", Settings::exitProgramsPath[i].arguments.c_str());
+                ImGui::Text("%s", Settings::exit_programs_path[i].arguments.c_str());
             } else {
-                ImGui::TextColored(ImVec4(1, 0, 0, 1), "%s", Settings::exitProgramsPath[i].path.c_str());
+                ImGui::TextColored(ImVec4(1, 0, 0, 1), "%s", Settings::exit_programs_path[i].path.c_str());
                 if (ImGui::IsItemHovered()) {
                     ImGui::SetTooltip("Path does not exist.");
                 }
                 ImGui::SameLine();
-                ImGui::TextColored(ImVec4(1, 0, 0, 1), "%s", Settings::exitProgramsPath[i].arguments.c_str());
+                ImGui::TextColored(ImVec4(1, 0, 0, 1), "%s", Settings::exit_programs_path[i].arguments.c_str());
             }
         }
         ImGui::SameLine();
-        if (editExitProgram == -1 && ImGui::Button("Edit")) {
-            editExitProgram = i;
-            strcpy_s(editProgramPath, Settings::exitProgramsPath[i].path.c_str());
-            strcpy_s(editProgramArguments, Settings::exitProgramsPath[i].arguments.c_str());
+        if (edit_exit_program == -1 && ImGui::Button("Edit")) {
+            edit_exit_program = i;
+            strcpy_s(edit_program_path, Settings::exit_programs_path[i].path.c_str());
+            strcpy_s(edit_program_arguments, Settings::exit_programs_path[i].arguments.c_str());
         }
         ImGui::SameLine();
         if (ImGui::Button("Delete")) {
             Settings::remove_exit_program(i);
-            editExitProgram = -1;
+            edit_exit_program = -1;
             continue;
         }
         ImGui::PopID();
@@ -190,21 +190,21 @@ void display_add_program_option()
     }
     fileBrowser.Display();
     if (fileBrowser.HasSelected()) {
-        strcpy_s(newProgram, fileBrowser.GetSelected().string().c_str());
+        strcpy_s(new_program, fileBrowser.GetSelected().string().c_str());
     }
     ImGui::NewLine();
     ImGui::Checkbox("Start program on game exit", &start_on_exit);
-    ImGui::InputText("Program Path##ProgramPathInput", newProgram, 256);
-    ImGui::InputText("Program Arguments##ProgramArgumentsInput", newArguments, 256);
+    ImGui::InputText("Program Path##ProgramPathInput", new_program, 256);
+    ImGui::InputText("Program Arguments##ProgramArgumentsInput", new_arguments, 256);
     if (ImGui::Button("Add program##AddProgramButton")) {
-        std::string program(newProgram);
+        std::string program(new_program);
         if (program.empty())
             return;
-        const std::string arguments(newArguments);
+        const std::string arguments(new_arguments);
         std::string extension(program.substr(program.find_last_of('.')));
         if (std::ranges::find(supported_extensions.begin(), supported_extensions.end(), extension) ==
             supported_extensions.end()) {
-            isProgramValid = false;
+            is_program_valid = false;
         } else {
             if (const auto pos = program.find_first_of('"'); pos != std::string::npos) {
                 program.erase(pos, 1);
@@ -220,12 +220,12 @@ void display_add_program_option()
                 Settings::add_start_program(program, arguments);
             }
             fileBrowser.ClearSelected();
-            memset(newProgram, 0, 256);
-            memset(newArguments, 0, 256);
-            isProgramValid = true;
+            memset(new_program, 0, 256);
+            memset(new_arguments, 0, 256);
+            is_program_valid = true;
         }
     }
-    if (!isProgramValid) {
+    if (!is_program_valid) {
         ImGui::SameLine();
         ImGui::Text("Path must lead to an executable file. (.exe)");
     }

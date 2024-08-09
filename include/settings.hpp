@@ -11,14 +11,14 @@
 namespace Settings
 {
 
-void Load(const std::filesystem::path &aPath);
-void Save(const std::filesystem::path &aPath);
+void load(const std::filesystem::path &path);
+void save(const std::filesystem::path &path);
 
 extern nlohmann::json json_settings;
-extern std::filesystem::path SettingsPath;
+extern std::filesystem::path settings_path;
 extern std::mutex mutex;
-extern bool IsAddonEnabled;
-extern bool KillProcessesOnClose;
+extern bool is_addon_enabled;
+extern bool kill_processes_on_close;
 
 typedef struct
 {
@@ -35,8 +35,8 @@ void add_exit_program(const std::string &program, const std::string &arguments);
 void remove_start_program(int i);
 void remove_exit_program(int i);
 
-extern std::vector<program> startProgramsPath;
-extern std::vector<program> exitProgramsPath;
+extern std::vector<program> start_programs_path;
+extern std::vector<program> exit_programs_path;
 
 extern const char *IS_ADDON_ENABLED;
 extern const char *KILL_PROCESSES_ON_CLOSE;

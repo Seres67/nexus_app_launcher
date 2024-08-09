@@ -10,34 +10,34 @@
 #include <vector>
 
 // handle to self hmodule
-extern HMODULE hSelf;
+extern HMODULE self_module;
 // addon definition
-extern AddonDefinition AddonDef;
+extern AddonDefinition addon_def;
 // addon api
 extern AddonAPI *API;
 extern HWND game_handle;
 // if all programs have been started
-extern bool startedPrograms;
+extern bool started_programs;
 // supported extensions
 extern std::vector<std::string> supported_extensions;
 // Path environment variable
 extern char path[10240];
 // program path when adding a program
-extern char newProgram[256];
+extern char new_program[256];
 // program arguments when adding a program
-extern char newArguments[256];
+extern char new_arguments[256];
 // whether to start the program on game exit or not
 extern bool start_on_exit;
 // which index of Settings::startProgramsPath to edit
-extern int editProgram;
+extern int edit_program;
 // program path when editing a program
-extern char editProgramPath[256];
+extern char edit_program_path[256];
 // program arguments when editing a program
-extern char editProgramArguments[256];
+extern char edit_program_arguments[256];
 // which index of Settings::exitProgramsPath to edit
-extern int editExitProgram;
+extern int edit_exit_program;
 // whether the program is valid or not
-extern bool isProgramValid;
+extern bool is_program_valid;
 
 typedef struct
 {

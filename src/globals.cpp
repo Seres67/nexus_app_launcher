@@ -3,19 +3,19 @@
 //
 #include "globals.hpp"
 
-HMODULE hSelf = nullptr;
-AddonDefinition AddonDef{};
+HMODULE self_module = nullptr;
+AddonDefinition addon_def{};
 AddonAPI *API = nullptr;
 HWND game_handle = nullptr;
-bool startedPrograms = false;
+bool started_programs = false;
 std::vector<std::string> supported_extensions = {".exe", ".EXE", ".bat", ".BAT", ".cmd", ".CMD"};
 char path[10240];
-char newProgram[256] = {};
-char newArguments[256] = {};
+char new_program[256] = {};
+char new_arguments[256] = {};
 bool start_on_exit = false;
-int editProgram = -1;
-char editProgramPath[256] = {};
-char editProgramArguments[256] = {};
-int editExitProgram = -1;
-bool isProgramValid = true;
+int edit_program = -1;
+char edit_program_path[256] = {};
+char edit_program_arguments[256] = {};
+int edit_exit_program = -1;
+bool is_program_valid = true;
 std::vector<process> processes;

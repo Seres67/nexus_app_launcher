@@ -17,7 +17,7 @@ BOOL APIENTRY DllMain(const HMODULE hModule, const DWORD ul_reason_for_call, LPV
 {
     switch (ul_reason_for_call) {
     case DLL_PROCESS_ATTACH:
-        hSelf = hModule;
+        self_module = hModule;
         break;
     case DLL_PROCESS_DETACH:
     case DLL_THREAD_ATTACH:
@@ -30,22 +30,22 @@ BOOL APIENTRY DllMain(const HMODULE hModule, const DWORD ul_reason_for_call, LPV
 
 extern "C" __declspec(dllexport) AddonDefinition *GetAddonDef()
 {
-    AddonDef.Signature = -912284124;
-    AddonDef.APIVersion = NEXUS_API_VERSION;
-    AddonDef.Name = "App Launcher";
-    AddonDef.Version.Major = 0;
-    AddonDef.Version.Minor = 4;
-    AddonDef.Version.Build = 0;
-    AddonDef.Version.Revision = 0;
-    AddonDef.Author = "Seres67";
-    AddonDef.Description = "An addon that launches other programs when you launch the game.";
-    AddonDef.Load = addon_load;
-    AddonDef.Unload = addon_unload;
-    AddonDef.Flags = (EAddonFlags)8;
-    AddonDef.Provider = EUpdateProvider_GitHub;
-    AddonDef.UpdateLink = "https://github.com/Seres67/nexus_app_launcher";
+    addon_def.Signature = -912284124;
+    addon_def.APIVersion = NEXUS_API_VERSION;
+    addon_def.Name = "App Launcher";
+    addon_def.Version.Major = 0;
+    addon_def.Version.Minor = 4;
+    addon_def.Version.Build = 0;
+    addon_def.Version.Revision = 0;
+    addon_def.Author = "Seres67";
+    addon_def.Description = "An addon that launches other programs when you launch the game.";
+    addon_def.Load = addon_load;
+    addon_def.Unload = addon_unload;
+    addon_def.Flags = (EAddonFlags)8;
+    addon_def.Provider = EUpdateProvider_GitHub;
+    addon_def.UpdateLink = "https://github.com/Seres67/nexus_app_launcher";
 
-    return &AddonDef;
+    return &addon_def;
 }
 
 void create_process(const std::string &path, const std::string &arguments)
@@ -66,7 +66,7 @@ unsigned int wnd_proc(HWND__ *hWnd, const unsigned int uMsg, [[maybe_unused]] WP
         game_handle = hWnd;
     if (uMsg == WM_CLOSE || uMsg == WM_DESTROY || uMsg == WM_QUIT) {
         if (game_handle != nullptr) {
-            if (Settings::KillProcessesOnClose) {
+            if (Settings::kill_processes_on_close) {
                 API->Log(ELogLevel_INFO, "App Launcher", "killing every program on exit...");
                 for (auto &[pi, si] : processes) {
                     char log[256];
@@ -79,7 +79,7 @@ unsigned int wnd_proc(HWND__ *hWnd, const unsigned int uMsg, [[maybe_unused]] WP
                 }
             }
             API->Log(ELogLevel_INFO, "App Launcher", "starting every program on exit...");
-            for (auto &[path, arguments] : Settings::exitProgramsPath) {
+            for (auto &[path, arguments] : Settings::exit_programs_path) {
                 char log[256];
                 sprintf_s(log, "trying to start program at %s", path.c_str());
                 API->Log(ELogLevel_DEBUG, "App Launcher", log);
@@ -118,15 +118,15 @@ void addon_load(AddonAPI *api)
     API->Renderer.Register(ERenderType_Render, addon_render);
     API->Renderer.Register(ERenderType_OptionsRender, addon_options);
 
-    Settings::SettingsPath = API->Paths.GetAddonDirectory("app_launcher/settings.json");
-    if (std::filesystem::exists(Settings::SettingsPath)) {
-        Settings::Load(Settings::SettingsPath);
+    Settings::settings_path = API->Paths.GetAddonDirectory("app_launcher/settings.json");
+    if (std::filesystem::exists(Settings::settings_path)) {
+        Settings::load(Settings::settings_path);
     } else {
-        Settings::json_settings[Settings::IS_ADDON_ENABLED] = Settings::IsAddonEnabled;
-        Settings::json_settings[Settings::KILL_PROCESSES_ON_CLOSE] = Settings::KillProcessesOnClose;
-        Settings::json_settings[Settings::START_PROGRAMS_PATH] = Settings::startProgramsPath;
-        Settings::json_settings[Settings::EXIT_PROGRAMS_PATH] = Settings::exitProgramsPath;
-        Settings::Save(Settings::SettingsPath);
+        Settings::json_settings[Settings::IS_ADDON_ENABLED] = Settings::is_addon_enabled;
+        Settings::json_settings[Settings::KILL_PROCESSES_ON_CLOSE] = Settings::kill_processes_on_close;
+        Settings::json_settings[Settings::START_PROGRAMS_PATH] = Settings::start_programs_path;
+        Settings::json_settings[Settings::EXIT_PROGRAMS_PATH] = Settings::exit_programs_path;
+        Settings::save(Settings::settings_path);
     }
     GetEnvironmentVariableA("Path", path, 10240);
     API->Log(ELogLevel_INFO, "App Launcher", "addon loaded!");
@@ -141,10 +141,10 @@ void addon_unload()
 
 void addon_render()
 {
-    if (game_handle != nullptr && !startedPrograms) {
-        for (auto &[path, arguments] : Settings::startProgramsPath)
+    if (game_handle != nullptr && !started_programs) {
+        for (auto &[path, arguments] : Settings::start_programs_path)
             create_process(path, arguments);
-        startedPrograms = true;
+        started_programs = true;
         std::thread(
             []()
             {

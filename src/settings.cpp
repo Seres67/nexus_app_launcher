@@ -20,11 +20,11 @@ const char *EXIT_PROGRAMS_PATH = "ExitProgramsPath";
 
 json json_settings;
 std::mutex mutex;
-std::vector<program> startProgramsPath;
-std::vector<program> exitProgramsPath;
-std::filesystem::path SettingsPath;
-bool IsAddonEnabled = true;
-bool KillProcessesOnClose = false;
+std::vector<program> start_programs_path;
+std::vector<program> exit_programs_path;
+std::filesystem::path settings_path;
+bool is_addon_enabled = true;
+bool kill_processes_on_close = false;
 
 void from_json(const json &j, program &p)
 {
@@ -40,43 +40,43 @@ void to_json(json &j, const program &p)
 
 void add_start_program(const std::string &program, const std::string &arguments)
 {
-    startProgramsPath.emplace_back(program, arguments);
-    json_settings[START_PROGRAMS_PATH] = startProgramsPath;
-    Save(SettingsPath);
+    start_programs_path.emplace_back(program, arguments);
+    json_settings[START_PROGRAMS_PATH] = start_programs_path;
+    save(settings_path);
 }
 
 void add_exit_program(const std::string &program, const std::string &arguments)
 {
-    exitProgramsPath.emplace_back(program, arguments);
-    json_settings[EXIT_PROGRAMS_PATH] = exitProgramsPath;
-    Save(SettingsPath);
+    exit_programs_path.emplace_back(program, arguments);
+    json_settings[EXIT_PROGRAMS_PATH] = exit_programs_path;
+    save(settings_path);
 }
 
 void remove_start_program(const int i)
 {
-    startProgramsPath.erase(startProgramsPath.begin() + i);
-    json_settings[START_PROGRAMS_PATH] = startProgramsPath;
-    Save(SettingsPath);
+    start_programs_path.erase(start_programs_path.begin() + i);
+    json_settings[START_PROGRAMS_PATH] = start_programs_path;
+    save(settings_path);
 }
 
 void remove_exit_program(const int i)
 {
-    exitProgramsPath.erase(exitProgramsPath.begin() + i);
-    json_settings[EXIT_PROGRAMS_PATH] = exitProgramsPath;
-    Save(SettingsPath);
+    exit_programs_path.erase(exit_programs_path.begin() + i);
+    json_settings[EXIT_PROGRAMS_PATH] = exit_programs_path;
+    save(settings_path);
 }
 
-void Load(const std::filesystem::path &aPath)
+void load(const std::filesystem::path &path)
 {
     json_settings = json::object();
-    if (!std::filesystem::exists(aPath)) {
+    if (!std::filesystem::exists(path)) {
         return;
     }
 
     {
         std::lock_guard lock(mutex);
         try {
-            if (std::ifstream file(aPath); file.is_open()) {
+            if (std::ifstream file(path); file.is_open()) {
                 json_settings = json::parse(file);
                 file.close();
             }
@@ -86,32 +86,32 @@ void Load(const std::filesystem::path &aPath)
         }
     }
     if (!json_settings[IS_ADDON_ENABLED].is_null()) {
-        json_settings[IS_ADDON_ENABLED].get_to(IsAddonEnabled);
+        json_settings[IS_ADDON_ENABLED].get_to(is_addon_enabled);
     }
     if (!json_settings[KILL_PROCESSES_ON_CLOSE].is_null()) {
-        json_settings[KILL_PROCESSES_ON_CLOSE].get_to(KillProcessesOnClose);
+        json_settings[KILL_PROCESSES_ON_CLOSE].get_to(kill_processes_on_close);
     }
     if (!json_settings[START_PROGRAMS_PATH].is_null()) {
-        json_settings[START_PROGRAMS_PATH].get_to(startProgramsPath);
+        json_settings[START_PROGRAMS_PATH].get_to(start_programs_path);
     }
     if (!json_settings[EXIT_PROGRAMS_PATH].is_null()) {
-        json_settings[EXIT_PROGRAMS_PATH].get_to(exitProgramsPath);
+        json_settings[EXIT_PROGRAMS_PATH].get_to(exit_programs_path);
     }
     API->Log(ELogLevel_INFO, "App Launcher", "settings loaded!");
 }
 
-void Save(const std::filesystem::path &aPath)
+void save(const std::filesystem::path &path)
 {
     if (json_settings.is_null()) {
         API->Log(ELogLevel_WARNING, "App Launcher", "settings.json is null, cannot save.");
         return;
     }
-    if (!std::filesystem::exists(aPath.parent_path())) {
-        std::filesystem::create_directories(aPath.parent_path());
+    if (!std::filesystem::exists(path.parent_path())) {
+        std::filesystem::create_directories(path.parent_path());
     }
     {
         std::lock_guard lock(mutex);
-        if (std::ofstream file(aPath); file.is_open()) {
+        if (std::ofstream file(path); file.is_open()) {
             file << json_settings.dump(1, '\t') << std::endl;
             file.close();
         }
