@@ -1,7 +1,3 @@
-//
-// Created by Seres67 on 06/08/2024.
-//
-
 #ifndef GLOBALS_HPP
 #define GLOBALS_HPP
 
@@ -14,7 +10,7 @@ extern HMODULE self_module;
 // addon definition
 extern AddonDefinition addon_def;
 // addon api
-extern AddonAPI *API;
+extern AddonAPI *api;
 extern HWND game_handle;
 // if all programs have been started
 extern bool started_programs;
@@ -36,6 +32,10 @@ extern char edit_program_path[256];
 extern char edit_program_arguments[256];
 // which index of Settings::exitProgramsPath to edit
 extern int edit_exit_program;
+// whether to start the program on game exit or not when editing a program
+extern bool edit_start_on_exit;
+extern bool edit_exit_start_on_exit;
+extern int program_to_swap;
 // whether the program is valid or not
 extern bool is_program_valid;
 

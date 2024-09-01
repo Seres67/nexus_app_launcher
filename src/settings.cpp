@@ -1,7 +1,3 @@
-//
-// Created by Seres67 on 06/08/2024.
-//
-
 #include "settings.hpp"
 #include "nlohmann/json.hpp"
 #include <filesystem>
@@ -81,8 +77,8 @@ void load(const std::filesystem::path &path)
                 file.close();
             }
         } catch (json::parse_error &ex) {
-            API->Log(ELogLevel_WARNING, "App Launcher", "settings.json could not be parsed.");
-            API->Log(ELogLevel_WARNING, "App Launcher", ex.what());
+            api->Log(ELogLevel_WARNING, "App Launcher", "settings.json could not be parsed.");
+            api->Log(ELogLevel_WARNING, "App Launcher", ex.what());
         }
     }
     if (!json_settings[IS_ADDON_ENABLED].is_null()) {
@@ -97,13 +93,13 @@ void load(const std::filesystem::path &path)
     if (!json_settings[EXIT_PROGRAMS_PATH].is_null()) {
         json_settings[EXIT_PROGRAMS_PATH].get_to(exit_programs_path);
     }
-    API->Log(ELogLevel_INFO, "App Launcher", "settings loaded!");
+    api->Log(ELogLevel_INFO, "App Launcher", "settings loaded!");
 }
 
 void save(const std::filesystem::path &path)
 {
     if (json_settings.is_null()) {
-        API->Log(ELogLevel_WARNING, "App Launcher", "settings.json is null, cannot save.");
+        api->Log(ELogLevel_WARNING, "App Launcher", "settings.json is null, cannot save.");
         return;
     }
     if (!std::filesystem::exists(path.parent_path())) {
@@ -115,7 +111,7 @@ void save(const std::filesystem::path &path)
             file << json_settings.dump(1, '\t') << std::endl;
             file.close();
         }
-        API->Log(ELogLevel_INFO, "App Launcher", "settings saved!");
+        api->Log(ELogLevel_INFO, "App Launcher", "settings saved!");
     }
 }
 } // namespace Settings

@@ -1,16 +1,11 @@
-//
-// Created by Seres67 on 09/08/2024.
-//
-
 #include "gui.hpp"
-
 #include <globals.hpp>
 #include <imgui/imgui.h>
 #include <settings.hpp>
 
 void display_active_option()
 {
-    if (ImGui::Checkbox("Enabled##Widget", &Settings::is_addon_enabled)) {
+    if (ImGui::Checkbox("Enabled##AppLauncherEnabled", &Settings::is_addon_enabled)) {
         Settings::json_settings[Settings::IS_ADDON_ENABLED] = Settings::is_addon_enabled;
         Settings::save(Settings::settings_path);
     }
@@ -39,9 +34,13 @@ void display_start_programs_option()
     for (auto i = 0; i < Settings::start_programs_path.size(); i++) {
         ImGui::PushID(i);
         if (edit_program == i) {
+            ImGui::Checkbox("Start on game exit", &edit_start_on_exit);
             ImGui::InputText("Program Path##ProgramPathInput", edit_program_path, 256);
             ImGui::InputText("Program Arguments##ProgramArgumentsInput", edit_program_arguments, 256);
             if (ImGui::Button("Confirm##ConfirmButton")) {
+                if (edit_start_on_exit) {
+                    program_to_swap = i;
+                }
                 Settings::start_programs_path[i].path = edit_program_path;
                 Settings::start_programs_path[i].arguments = edit_program_arguments;
                 Settings::json_settings[Settings::START_PROGRAMS_PATH] = Settings::start_programs_path;
@@ -93,6 +92,15 @@ void display_start_programs_option()
         }
         ImGui::PopID();
     }
+    if (program_to_swap != -1) {
+        std::string path(Settings::start_programs_path[program_to_swap].path);
+        std::string arguments(Settings::start_programs_path[program_to_swap].arguments);
+        kill_process(program_to_swap);
+        Settings::remove_start_program(program_to_swap);
+        Settings::add_exit_program(path, arguments);
+        program_to_swap = -1;
+        edit_start_on_exit = false;
+    }
 }
 
 void display_exit_programs_option()
@@ -101,9 +109,13 @@ void display_exit_programs_option()
     for (auto i = 0; i < Settings::exit_programs_path.size(); i++) {
         ImGui::PushID(("exit" + std::to_string(i)).c_str());
         if (edit_exit_program == i) {
+            ImGui::Checkbox("Start on game exit", &edit_exit_start_on_exit);
             ImGui::InputText("Program Path##ProgramPathInput", edit_program_path, 256);
             ImGui::InputText("Program Arguments##ProgramArgumentsInput", edit_program_arguments, 256);
             if (ImGui::Button("Confirm##ConfirmButton")) {
+                if (!edit_exit_start_on_exit) {
+                    program_to_swap = i;
+                }
                 Settings::exit_programs_path[i].path = edit_program_path;
                 Settings::exit_programs_path[i].arguments = edit_program_arguments;
                 Settings::json_settings[Settings::EXIT_PROGRAMS_PATH] = Settings::exit_programs_path;
@@ -148,6 +160,14 @@ void display_exit_programs_option()
         }
         ImGui::PopID();
     }
+    if (program_to_swap != -1) {
+        std::string path(Settings::exit_programs_path[program_to_swap].path);
+        std::string arguments(Settings::exit_programs_path[program_to_swap].arguments);
+        Settings::remove_exit_program(program_to_swap);
+        Settings::add_start_program(path, arguments);
+        program_to_swap = -1;
+        edit_exit_start_on_exit = false;
+    }
 }
 
 template <typename Out> void split(const std::string &s, const char delim, Out result)
@@ -172,7 +192,7 @@ std::string get_program_path(const std::string &program)
         p.append("\\").append(program);
         char log[256];
         sprintf_s(log, "Checking if program exists at %s", p.c_str());
-        API->Log(ELogLevel_DEBUG, "App Launcher", log);
+        api->Log(ELogLevel_DEBUG, "App Launcher", log);
         if (std::filesystem::exists(p)) {
             return p;
         }
@@ -181,16 +201,16 @@ std::string get_program_path(const std::string &program)
 }
 
 #include <imgui-filebrowser/imfilebrowser.h>
-ImGui::FileBrowser fileBrowser;
+ImGui::FileBrowser file_browser;
 void display_add_program_option()
 {
     if (ImGui::Button("Open File Picker##OpenFilePickerButton")) {
-        fileBrowser.SetTypeFilters(supported_extensions);
-        fileBrowser.Open();
+        file_browser.SetTypeFilters(supported_extensions);
+        file_browser.Open();
     }
-    fileBrowser.Display();
-    if (fileBrowser.HasSelected()) {
-        strcpy_s(new_program, fileBrowser.GetSelected().string().c_str());
+    file_browser.Display();
+    if (file_browser.HasSelected()) {
+        strcpy_s(new_program, file_browser.GetSelected().string().c_str());
     }
     ImGui::NewLine();
     ImGui::Checkbox("Start program on game exit", &start_on_exit);
@@ -211,7 +231,7 @@ void display_add_program_option()
                 program.erase(program.find_last_of('"'), 1);
             }
             if (program.find("/\\") == std::string::npos) {
-                API->Log(ELogLevel_DEBUG, "App Launcher", "Trying to find program in PATH...");
+                api->Log(ELogLevel_DEBUG, "App Launcher", "Trying to find program in PATH...");
                 program = get_program_path(program);
             }
             if (start_on_exit) {
@@ -219,7 +239,7 @@ void display_add_program_option()
             } else {
                 Settings::add_start_program(program, arguments);
             }
-            fileBrowser.ClearSelected();
+            file_browser.ClearSelected();
             memset(new_program, 0, 256);
             memset(new_arguments, 0, 256);
             is_program_valid = true;
