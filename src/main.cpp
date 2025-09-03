@@ -31,7 +31,7 @@ BOOL APIENTRY dll_main(const HMODULE hModule, const DWORD ul_reason_for_call, LP
 // NOLINTNEXTLINE(readability-identifier-naming)
 extern "C" __declspec(dllexport) AddonDefinition *GetAddonDef()
 {
-    addon_def.Signature = -912284124;
+    addon_def.Signature = 3382683172;
     addon_def.APIVersion = NEXUS_API_VERSION;
     addon_def.Name = "App Launcher";
     addon_def.Version.Major = 0;
@@ -56,8 +56,8 @@ void create_process(const std::string &path, const std::string &arguments)
     processes.back().si.cb = sizeof(processes.back().si);
     ZeroMemory(&processes.back().pi, sizeof(processes.back().pi));
     const std::string cmd(" " + arguments);
-    CreateProcessA(path.c_str(), const_cast<char *>(cmd.c_str()), nullptr, nullptr, false, 0, nullptr, nullptr,
-                   &processes.back().si, &processes.back().pi);
+    CreateProcessA(path.c_str(), const_cast<char *>(cmd.c_str()), nullptr, nullptr, false, DETACHED_PROCESS, nullptr,
+                   nullptr, &processes.back().si, &processes.back().pi);
 }
 
 unsigned int wnd_proc(HWND__ *hWnd, const unsigned int uMsg, [[maybe_unused]] WPARAM wParam,
@@ -90,13 +90,12 @@ unsigned int wnd_proc(HWND__ *hWnd, const unsigned int uMsg, [[maybe_unused]] WP
                 si.cb = sizeof(si);
                 ZeroMemory(&pi, sizeof(pi));
                 std::string cmd(" " + arguments);
-                CreateProcessA(path.c_str(), const_cast<char *>(cmd.c_str()), nullptr, nullptr, false, 0, nullptr,
-                               nullptr, &si, &pi);
+                CreateProcessA(path.c_str(), const_cast<char *>(cmd.c_str()), nullptr, nullptr, false, DETACHED_PROCESS,
+                               nullptr, nullptr, &si, &pi);
             }
-            api->Log(ELogLevel_INFO, "App Launcher", "launched every program on exit & deregistered wndproc!");
-        } else {
-            api->Log(ELogLevel_DEBUG, "App Launcher", "handle is null");
+            api->Log(ELogLevel_INFO, "App Launcher", "launched every program on exit!");
         }
+        api->Log(ELogLevel_DEBUG, "App Launcher", "after handle check");
     }
     return uMsg;
 }
@@ -105,13 +104,12 @@ void addon_load(AddonAPI *api_p)
 {
     api = api_p;
 
-    api->WndProc.Register(wnd_proc);
-
     ImGui::SetCurrentContext(static_cast<ImGuiContext *>(api->ImguiContext));
     ImGui::SetAllocatorFunctions(static_cast<void *(*)(size_t, void *)>(api->ImguiMalloc),
                                  static_cast<void (*)(void *, void *)>(api->ImguiFree)); // on imgui 1.80+
     api->Renderer.Register(ERenderType_Render, addon_render);
     api->Renderer.Register(ERenderType_OptionsRender, addon_options);
+    api->WndProc.Register(wnd_proc);
 
     Settings::settings_path = api->Paths.GetAddonDirectory("app_launcher/settings.json");
     if (std::filesystem::exists(Settings::settings_path)) {
@@ -123,16 +121,19 @@ void addon_load(AddonAPI *api_p)
         Settings::json_settings[Settings::EXIT_PROGRAMS_PATH] = Settings::exit_programs_path;
         Settings::save(Settings::settings_path);
     }
-    GetEnvironmentVariableA("Path", path, 10240);
+    GetEnvironmentVariableA("Path", path, 4096);
     api->Log(ELogLevel_INFO, "App Launcher", "addon loaded!");
 }
 
 void addon_unload()
 {
     api->Log(ELogLevel_INFO, "App Launcher", "unloading addon...");
-    api->WndProc.Deregister(wnd_proc);
     api->Renderer.Deregister(addon_options);
+    api->WndProc.Deregister(wnd_proc);
     api = nullptr;
+    free(path);
+    Settings::start_programs_path.clear();
+    Settings::exit_programs_path.clear();
 }
 
 void addon_render()

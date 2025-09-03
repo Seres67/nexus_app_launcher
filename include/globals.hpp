@@ -17,7 +17,7 @@ extern bool started_programs;
 // supported extensions
 extern std::vector<std::string> supported_extensions;
 // Path environment variable
-extern char path[10240];
+extern char path[4096];
 // program path when adding a program
 extern char new_program[256];
 // program arguments when adding a program
@@ -46,5 +46,7 @@ typedef struct
 } process;
 // list of processes
 extern std::vector<process> processes;
+
+void kill_process(int i);
 
 #endif // GLOBALS_HPP

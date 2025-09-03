@@ -33,4 +33,12 @@ add_subdirectory(src/imgui)
 
 add_library(nexus_app_launcher SHARED src/main.cpp src/globals.cpp src/gui.cpp src/settings.cpp)
 target_link_libraries(nexus_app_launcher imgui)
-set_property(TARGET nexus_app_launcher PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreadedDebug")
+set_property(TARGET nexus_app_launcher PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
+# copy dll to game directory
+add_custom_command(TARGET nexus_app_launcher
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:nexus_app_launcher>
+        "C:\\Games\\Guild Wars 2\\addons\\nexus_app_launcher.dll.update"
+        COMMENT "Copying nexus_app_launcher.dll.update to game directory"
+)

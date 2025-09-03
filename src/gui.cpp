@@ -19,15 +19,6 @@ void display_kill_processes_on_close_option()
     }
 }
 
-void kill_process(const int i)
-{
-    TerminateProcess(processes[i].pi.hProcess, 0);
-    WaitForSingleObject(processes[i].pi.hProcess, INFINITE);
-    CloseHandle(processes[i].pi.hProcess);
-    CloseHandle(processes[i].pi.hThread);
-    processes.erase(processes.begin() + i);
-}
-
 void display_start_programs_option()
 {
     ImGui::Text("Start Programs");
@@ -93,6 +84,8 @@ void display_start_programs_option()
         ImGui::PopID();
     }
     if (program_to_swap != -1) {
+        std::string log("Swapping " + std::to_string(program_to_swap));
+        api->Log(ELogLevel_INFO, "App Launcher", log.c_str());
         std::string path(Settings::start_programs_path[program_to_swap].path);
         std::string arguments(Settings::start_programs_path[program_to_swap].arguments);
         kill_process(program_to_swap);
