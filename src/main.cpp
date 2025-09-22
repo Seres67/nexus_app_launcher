@@ -5,6 +5,7 @@
 #include <nexus/Nexus.h>
 #include <settings.hpp>
 #include <string>
+#include <thread>
 #include <vector>
 #include <windows.h>
 
@@ -105,8 +106,8 @@ void addon_load(AddonAPI *api_p)
     api = api_p;
 
     ImGui::SetCurrentContext(static_cast<ImGuiContext *>(api->ImguiContext));
-    ImGui::SetAllocatorFunctions(static_cast<void *(*)(size_t, void *)>(api->ImguiMalloc),
-                                 static_cast<void (*)(void *, void *)>(api->ImguiFree)); // on imgui 1.80+
+    ImGui::SetAllocatorFunctions(reinterpret_cast<void *(*)(size_t, void *)>(api->ImguiMalloc),
+                                 reinterpret_cast<void (*)(void *, void *)>(api->ImguiFree)); // on imgui 1.80+
     api->Renderer.Register(ERenderType_Render, addon_render);
     api->Renderer.Register(ERenderType_OptionsRender, addon_options);
     api->WndProc.Register(wnd_proc);
@@ -128,12 +129,12 @@ void addon_load(AddonAPI *api_p)
 void addon_unload()
 {
     api->Log(ELogLevel_INFO, "App Launcher", "unloading addon...");
+    api->Renderer.Deregister(addon_render);
     api->Renderer.Deregister(addon_options);
     api->WndProc.Deregister(wnd_proc);
-    api = nullptr;
-    free(path);
     Settings::start_programs_path.clear();
     Settings::exit_programs_path.clear();
+    api = nullptr;
 }
 
 void addon_render()
