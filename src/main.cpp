@@ -41,8 +41,9 @@ extern "C" __declspec(dllexport) AddonDefinition *GetAddonDef()
     addon_def.Load = addon_load;
     addon_def.Unload = addon_unload;
     addon_def.Flags = EAddonFlags_None;
-    addon_def.Provider = EUpdateProvider_GitHub;
-    addon_def.UpdateLink = "https://github.com/Seres67/nexus_app_launcher";
+    addon_def.Provider = EUpdateProvider_Direct;
+    addon_def.UpdateLink =
+        "https://git.seres.eu.org/seres/nexus_app_launcher/releases/download/latest/libnexus_app_launcher.dll";
 
     return &addon_def;
 }

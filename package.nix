@@ -1,5 +1,6 @@
 {
   cmake,
+  xxd,
   stdenv,
 }:
 stdenv.mkDerivation {
@@ -9,11 +10,12 @@ stdenv.mkDerivation {
 
   nativeBuildInputs = [
     cmake
+    xxd
   ];
 
   installPhase = ''
-    x86_64-w64-mingw32-strip ./*.dll
     mkdir -p $out/lib
     cp ./*.dll $out/lib
+    md5sum $out/lib/libnexus_app_launcher.dll | awk '{print $1}' | xxd -r -p > $out/libnexus_app_launcher.dll.md5
   '';
 }
