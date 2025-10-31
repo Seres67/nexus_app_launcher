@@ -9,7 +9,6 @@
 using json = nlohmann::json;
 namespace Settings
 {
-const char *IS_ADDON_ENABLED = "IsAddonEnabled";
 const char *KILL_PROCESSES_ON_CLOSE = "KillProcessesOnClose";
 const char *START_PROGRAMS_PATH = "StartProgramsPath";
 const char *EXIT_PROGRAMS_PATH = "ExitProgramsPath";
@@ -19,31 +18,35 @@ std::mutex mutex;
 std::vector<program> start_programs_path;
 std::vector<program> exit_programs_path;
 std::filesystem::path settings_path;
-bool is_addon_enabled = true;
 bool kill_processes_on_close = false;
 
 void from_json(const json &j, program &p)
 {
     j.at("path").get_to(p.path);
+    if (j.contains("working_directory"))
+        j.at("working_directory").get_to(p.working_dir);
+    else
+        p.working_dir = {};
     j.at("arguments").get_to(p.arguments);
 }
 
 void to_json(json &j, const program &p)
 {
     j["path"] = p.path;
+    j["working_directory"] = p.working_dir;
     j["arguments"] = p.arguments;
 }
 
-void add_start_program(const std::string &program, const std::string &arguments)
+void add_start_program(const std::string &program, const std::string &working_dir, const std::string &arguments)
 {
-    start_programs_path.emplace_back(program, arguments);
+    start_programs_path.emplace_back(program, working_dir, arguments);
     json_settings[START_PROGRAMS_PATH] = start_programs_path;
     save(settings_path);
 }
 
-void add_exit_program(const std::string &program, const std::string &arguments)
+void add_exit_program(const std::string &program, const std::string &working_dir, const std::string &arguments)
 {
-    exit_programs_path.emplace_back(program, arguments);
+    exit_programs_path.emplace_back(program, working_dir, arguments);
     json_settings[EXIT_PROGRAMS_PATH] = exit_programs_path;
     save(settings_path);
 }
@@ -77,12 +80,9 @@ void load(const std::filesystem::path &path)
                 file.close();
             }
         } catch (json::parse_error &ex) {
-            api->Log(ELogLevel_WARNING, "App Launcher", "settings.json could not be parsed.");
-            api->Log(ELogLevel_WARNING, "App Launcher", ex.what());
+            api->Log(ELogLevel_WARNING, addon_name, "settings.json could not be parsed.");
+            api->Log(ELogLevel_WARNING, addon_name, ex.what());
         }
-    }
-    if (!json_settings[IS_ADDON_ENABLED].is_null()) {
-        json_settings[IS_ADDON_ENABLED].get_to(is_addon_enabled);
     }
     if (!json_settings[KILL_PROCESSES_ON_CLOSE].is_null()) {
         json_settings[KILL_PROCESSES_ON_CLOSE].get_to(kill_processes_on_close);
@@ -93,13 +93,13 @@ void load(const std::filesystem::path &path)
     if (!json_settings[EXIT_PROGRAMS_PATH].is_null()) {
         json_settings[EXIT_PROGRAMS_PATH].get_to(exit_programs_path);
     }
-    api->Log(ELogLevel_INFO, "App Launcher", "settings loaded!");
+    api->Log(ELogLevel_INFO, addon_name, "settings loaded!");
 }
 
 void save(const std::filesystem::path &path)
 {
     if (json_settings.is_null()) {
-        api->Log(ELogLevel_WARNING, "App Launcher", "settings.json is null, cannot save.");
+        api->Log(ELogLevel_WARNING, addon_name, "settings.json is null, cannot save.");
         return;
     }
     if (!std::filesystem::exists(path.parent_path())) {
@@ -111,7 +111,7 @@ void save(const std::filesystem::path &path)
             file << json_settings.dump(1, '\t') << std::endl;
             file.close();
         }
-        api->Log(ELogLevel_INFO, "App Launcher", "settings saved!");
+        api->Log(ELogLevel_INFO, addon_name, "settings saved!");
     }
 }
 } // namespace Settings

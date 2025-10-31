@@ -5,14 +5,11 @@
 #include <nexus/Nexus.h>
 #include <settings.hpp>
 #include <string>
-#include <thread>
 #include <vector>
 #include <windows.h>
 
 void addon_load(AddonAPI *api_p);
 void addon_unload();
-void addon_render();
-void addon_options();
 
 BOOL APIENTRY dll_main(const HMODULE hModule, const DWORD ul_reason_for_call, LPVOID lpReserved)
 {
@@ -37,7 +34,7 @@ extern "C" __declspec(dllexport) AddonDefinition *GetAddonDef()
     addon_def.Name = "App Launcher";
     addon_def.Version.Major = 0;
     addon_def.Version.Minor = 5;
-    addon_def.Version.Build = 1;
+    addon_def.Version.Build = 2;
     addon_def.Version.Revision = 0;
     addon_def.Author = "Seres67";
     addon_def.Description = "An addon that launches other programs when you launch the game.";
@@ -50,17 +47,6 @@ extern "C" __declspec(dllexport) AddonDefinition *GetAddonDef()
     return &addon_def;
 }
 
-void create_process(const std::string &path, const std::string &arguments)
-{
-    processes.emplace_back();
-    ZeroMemory(&processes.back().si, sizeof(processes.back().si));
-    processes.back().si.cb = sizeof(processes.back().si);
-    ZeroMemory(&processes.back().pi, sizeof(processes.back().pi));
-    const std::string cmd(" " + arguments);
-    CreateProcessA(path.c_str(), const_cast<char *>(cmd.c_str()), nullptr, nullptr, false, DETACHED_PROCESS, nullptr,
-                   nullptr, &processes.back().si, &processes.back().pi);
-}
-
 unsigned int wnd_proc(HWND__ *hWnd, const unsigned int uMsg, [[maybe_unused]] WPARAM wParam,
                       [[maybe_unused]] LPARAM lParam)
 {
@@ -69,22 +55,22 @@ unsigned int wnd_proc(HWND__ *hWnd, const unsigned int uMsg, [[maybe_unused]] WP
     if (uMsg == WM_CLOSE || uMsg == WM_DESTROY || uMsg == WM_QUIT) {
         if (game_handle != nullptr) {
             if (Settings::kill_processes_on_close) {
-                api->Log(ELogLevel_INFO, "App Launcher", "killing every program on exit...");
+                api->Log(ELogLevel_INFO, addon_name, "killing every program on exit...");
                 for (auto &[pi, si] : processes) {
                     char log[256];
                     sprintf_s(log, "killing process %d", pi.dwProcessId);
-                    api->Log(ELogLevel_DEBUG, "App Launcher", log);
+                    api->Log(ELogLevel_DEBUG, addon_name, log);
                     TerminateProcess(pi.hProcess, 0);
                     WaitForSingleObject(pi.hProcess, INFINITE);
                     CloseHandle(pi.hProcess);
                     CloseHandle(pi.hThread);
                 }
             }
-            api->Log(ELogLevel_INFO, "App Launcher", "starting every program on exit...");
-            for (auto &[path, arguments] : Settings::exit_programs_path) {
+            api->Log(ELogLevel_INFO, addon_name, "starting every program on exit...");
+            for (auto &[path, working, arguments] : Settings::exit_programs_path) {
                 char log[256];
                 sprintf_s(log, "trying to start program at %s", path.c_str());
-                api->Log(ELogLevel_DEBUG, "App Launcher", log);
+                api->Log(ELogLevel_DEBUG, addon_name, log);
                 PROCESS_INFORMATION pi;
                 STARTUPINFOA si;
                 ZeroMemory(&si, sizeof(si));
@@ -92,11 +78,11 @@ unsigned int wnd_proc(HWND__ *hWnd, const unsigned int uMsg, [[maybe_unused]] WP
                 ZeroMemory(&pi, sizeof(pi));
                 std::string cmd(" " + arguments);
                 CreateProcessA(path.c_str(), const_cast<char *>(cmd.c_str()), nullptr, nullptr, false, DETACHED_PROCESS,
-                               nullptr, nullptr, &si, &pi);
+                               nullptr, working.c_str(), &si, &pi);
             }
-            api->Log(ELogLevel_INFO, "App Launcher", "launched every program on exit!");
+            api->Log(ELogLevel_INFO, addon_name, "launched every program on exit!");
         }
-        api->Log(ELogLevel_DEBUG, "App Launcher", "after handle check");
+        api->Log(ELogLevel_DEBUG, addon_name, "after handle check");
     }
     return uMsg;
 }
@@ -116,53 +102,22 @@ void addon_load(AddonAPI *api_p)
     if (std::filesystem::exists(Settings::settings_path)) {
         Settings::load(Settings::settings_path);
     } else {
-        Settings::json_settings[Settings::IS_ADDON_ENABLED] = Settings::is_addon_enabled;
         Settings::json_settings[Settings::KILL_PROCESSES_ON_CLOSE] = Settings::kill_processes_on_close;
         Settings::json_settings[Settings::START_PROGRAMS_PATH] = Settings::start_programs_path;
         Settings::json_settings[Settings::EXIT_PROGRAMS_PATH] = Settings::exit_programs_path;
         Settings::save(Settings::settings_path);
     }
     GetEnvironmentVariableA("Path", path, 4096);
-    api->Log(ELogLevel_INFO, "App Launcher", "addon loaded!");
+    api->Log(ELogLevel_INFO, addon_name, "addon loaded!");
 }
 
 void addon_unload()
 {
-    api->Log(ELogLevel_INFO, "App Launcher", "unloading addon...");
+    api->Log(ELogLevel_INFO, addon_name, "unloading addon...");
     api->Renderer.Deregister(addon_render);
     api->Renderer.Deregister(addon_options);
     api->WndProc.Deregister(wnd_proc);
     Settings::start_programs_path.clear();
     Settings::exit_programs_path.clear();
     api = nullptr;
-}
-
-void addon_render()
-{
-    if (game_handle != nullptr && !started_programs) {
-        for (auto &[path, arguments] : Settings::start_programs_path)
-            create_process(path, arguments);
-        started_programs = true;
-        std::thread(
-            []()
-            {
-                api->Renderer.Deregister(addon_render);
-                api->Log(ELogLevel_INFO, "App Launcher", "launched every program & deregistered renderer!");
-            })
-            .detach();
-    }
-}
-
-void addon_options()
-{
-    display_active_option();
-    display_kill_processes_on_close_option();
-    if (ImGui::CollapsingHeader("Programs Path##ProgramsPathHeader")) {
-        display_start_programs_option();
-        ImGui::NewLine();
-        display_exit_programs_option();
-    }
-    if (ImGui::CollapsingHeader("Add program##AddProgramHeader")) {
-        display_add_program_option();
-    }
 }

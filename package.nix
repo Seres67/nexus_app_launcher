@@ -4,7 +4,7 @@
 }:
 stdenv.mkDerivation {
   pname = "nexus_app_launcher";
-  version = "0.5.0.0";
+  version = "0.5.1.0";
   src = ./.;
 
   nativeBuildInputs = [

@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+extern const char addon_name[];
 // handle to self hmodule
 extern HMODULE self_module;
 // addon definition
@@ -20,6 +21,8 @@ extern std::vector<std::string> supported_extensions;
 extern char path[4096];
 // program path when adding a program
 extern char new_program[256];
+// working directory when adding a program
+extern char new_program_working_directory[256];
 // program arguments when adding a program
 extern char new_arguments[256];
 // whether to start the program on game exit or not
@@ -28,6 +31,8 @@ extern bool start_on_exit;
 extern int edit_program;
 // program path when editing a program
 extern char edit_program_path[256];
+// program working dir when editing a program
+extern char edit_program_working_dir[256];
 // program arguments when editing a program
 extern char edit_program_arguments[256];
 // which index of Settings::exitProgramsPath to edit

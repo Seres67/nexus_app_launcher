@@ -1,5 +1,6 @@
 #include "globals.hpp"
 
+const char addon_name[] = "App Launcher";
 HMODULE self_module = nullptr;
 AddonDefinition addon_def{};
 AddonAPI *api = nullptr;
@@ -8,10 +9,12 @@ bool started_programs = false;
 std::vector<std::string> supported_extensions = {".exe", ".EXE", ".bat", ".BAT", ".cmd", ".CMD"};
 char path[4096];
 char new_program[256] = {};
+char new_program_working_directory[256] = {};
 char new_arguments[256] = {};
 bool start_on_exit = false;
 int edit_program = -1;
 char edit_program_path[256] = {};
+char edit_program_working_dir[256] = {};
 char edit_program_arguments[256] = {};
 int edit_exit_program = -1;
 bool edit_start_on_exit = false;
